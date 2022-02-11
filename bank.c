@@ -11,6 +11,7 @@
 struct bank {
     int num_accounts;        // number of accounts
     int *accounts;           // balance array
+    pthread_mutex_t mutex;
 };
 
 struct args {
@@ -26,8 +27,6 @@ struct thread_info {
     struct args *args;  // pointer to the arguments
 };
 
-pthread_mutex_t mutex= PTHREAD_MUTEX_INITIALIZER;
-
 // Threads run on this function
 void *deposit(void *ptr)
 {
@@ -40,7 +39,7 @@ void *deposit(void *ptr)
         printf("Thread %d depositing %d on account %d\n",
             args->thread_num, amount, account);
 
-        pthread_mutex_lock(&mutex);
+        pthread_mutex_lock(&args->bank->mutex);
         balance = args->bank->accounts[account];
         if(args->delay) usleep(args->delay); // Force a context switch
 
@@ -51,7 +50,7 @@ void *deposit(void *ptr)
         if(args->delay) usleep(args->delay);
 
         args->net_total += amount;
-        pthread_mutex_unlock(&mutex);
+        pthread_mutex_unlock(&args->bank->mutex);
     }
     return NULL;
 }
@@ -128,8 +127,10 @@ void init_accounts(struct bank *bank, int num_accounts) {
     bank->num_accounts = num_accounts;
     bank->accounts     = malloc(bank->num_accounts * sizeof(int));
 
-    for(int i=0; i < bank->num_accounts; i++)
+    for(int i=0; i < bank->num_accounts; i++){
         bank->accounts[i] = 0;
+        pthread_mutex_init(&bank->mutex,NULL);
+      }
 }
 
 int main (int argc, char **argv)
