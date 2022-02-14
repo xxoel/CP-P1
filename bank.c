@@ -11,7 +11,7 @@
 struct bank {
     int num_accounts;        // number of accounts
     int *accounts;           // balance array
-    pthread_mutex_t mutex;
+    pthread_mutex_t *mutex;
 };
 
 struct args {
@@ -39,7 +39,7 @@ void *deposit(void *ptr)
         printf("Thread %d depositing %d on account %d\n",
             args->thread_num, amount, account);
 
-        pthread_mutex_lock(&args->bank->mutex);
+        pthread_mutex_lock(args->bank->mutex);
         balance = args->bank->accounts[account];
         if(args->delay) usleep(args->delay); // Force a context switch
 
@@ -50,7 +50,7 @@ void *deposit(void *ptr)
         if(args->delay) usleep(args->delay);
 
         args->net_total += amount;
-        pthread_mutex_unlock(&args->bank->mutex);
+        pthread_mutex_unlock(args->bank->mutex);
     }
     return NULL;
 }
@@ -68,7 +68,8 @@ void *transfer(void *ptr)
         printf("Account %d depositing %d on account %d\n",
             account1, amount, account2);
 
-        pthread_mutex_lock(&args->bank->mutex);
+        //giving account
+        pthread_mutex_lock(args->bank->mutex);
         balance = args->bank->accounts[account1];
         if(args->delay) usleep(args->delay); // Force a context switch
 
@@ -77,7 +78,10 @@ void *transfer(void *ptr)
 
         args->bank->accounts[account1] = balance;
         if(args->delay) usleep(args->delay);
+        pthread_mutex_unlock(args->bank->mutex);
 
+        //reciving account
+        pthread_mutex_lock(args->bank->mutex);
         balance = args->bank->accounts[account2];
         if(args->delay) usleep(args->delay); // Force a context switch
 
@@ -86,7 +90,7 @@ void *transfer(void *ptr)
 
         args->bank->accounts[account2] = balance;
         if(args->delay) usleep(args->delay);
-        pthread_mutex_unlock(&args->bank->mutex);
+        pthread_mutex_unlock(args->bank->mutex);
 
     }
     return NULL;
@@ -126,15 +130,8 @@ struct thread_info *start_threads(struct options opt, struct bank *bank, void *f
 }
 
 // Print the final balances of accounts and threads
-void print_balances(struct bank *bank, struct thread_info *thrs, int num_threads) {
-    int total_deposits=0, bank_total=0;
-    printf("\nNet deposits by thread\n");
-
-    for(int i=0; i < num_threads; i++) {
-        printf("%d: %d\n", i, thrs[i].args->net_total);
-        total_deposits += thrs[i].args->net_total;
-    }
-    printf("Total: %d\n", total_deposits);
+void print_acc_balances(struct bank *bank, struct thread_info *thrs, int num_threads) {
+    int bank_total=0;
 
     printf("\nAccount balance\n");
     for(int i=0; i < bank->num_accounts; i++) {
@@ -144,13 +141,26 @@ void print_balances(struct bank *bank, struct thread_info *thrs, int num_threads
     printf("Total: %d\n", bank_total);
 }
 
+// Print the final balances of accounts and threads
+void print_thrs_balances(struct bank *bank, struct thread_info *thrs, int num_threads) {
+    int total_deposits=0;
+    printf("\nNet deposits by thread\n");
+
+    for(int i=0; i < num_threads; i++) {
+        printf("%d: %d\n", i, thrs[i].args->net_total);
+        total_deposits += thrs[i].args->net_total;
+    }
+    printf("Total: %d\n", total_deposits);
+}
+
 // wait for all threads to finish, print totals, and free memory
 void wait(struct options opt, struct bank *bank, struct thread_info *threads) {
     // Wait for the threads to finish
     for (int i = 0; i < opt.num_threads; i++)
         pthread_join(threads[i].id, NULL);
 
-    print_balances(bank, threads, opt.num_threads);
+    print_thrs_balances(bank, threads, opt.num_threads);
+    print_acc_balances(bank, threads, opt.num_threads);
 
     for (int i = 0; i < opt.num_threads; i++)
         free(threads[i].args);
@@ -165,7 +175,7 @@ void init_accounts(struct bank *bank, int num_accounts) {
 
     for(int i=0; i < bank->num_accounts; i++){
         bank->accounts[i] = 0;
-        pthread_mutex_init(&bank->mutex,NULL);
+        pthread_mutex_init(bank->mutex,NULL);
       }
 }
 
