@@ -39,7 +39,7 @@ void *deposit(void *ptr)
         printf("Thread %d depositing %d on account %d\n",
             args->thread_num, amount, account);
 
-        pthread_mutex_lock(args->bank->mutex);
+        pthread_mutex_lock(&args->bank->mutex[account]);
         balance = args->bank->accounts[account];
         if(args->delay) usleep(args->delay); // Force a context switch
 
@@ -50,7 +50,7 @@ void *deposit(void *ptr)
         if(args->delay) usleep(args->delay);
 
         args->net_total += amount;
-        pthread_mutex_unlock(args->bank->mutex);
+        pthread_mutex_unlock(&args->bank->mutex[account]);
     }
     return NULL;
 }
@@ -62,14 +62,15 @@ void *transfer(void *ptr)
 
     while(args->thread_num--) {
         account1 = rand() % args->bank->num_accounts;
-        while(account1 ==
-              (account2 = rand() % args->bank->num_accounts));
+        account2 = rand() % args->bank->num_accounts;
         amount  = rand() % args->bank->accounts[account1];
+        while(account1 ==account2)
+            account2 = rand() % args->bank->num_accounts;
         printf("Account %d depositing %d on account %d\n",
             account1, amount, account2);
 
         //giving account
-        pthread_mutex_lock(args->bank->mutex);
+        pthread_mutex_lock(&args->bank->mutex[account1]);
         balance = args->bank->accounts[account1];
         if(args->delay) usleep(args->delay); // Force a context switch
 
@@ -78,10 +79,10 @@ void *transfer(void *ptr)
 
         args->bank->accounts[account1] = balance;
         if(args->delay) usleep(args->delay);
-        pthread_mutex_unlock(args->bank->mutex);
+        pthread_mutex_unlock(&args->bank->mutex[account1]);
 
         //reciving account
-        pthread_mutex_lock(args->bank->mutex);
+        pthread_mutex_lock(&args->bank->mutex[account2]);
         balance = args->bank->accounts[account2];
         if(args->delay) usleep(args->delay); // Force a context switch
 
@@ -90,8 +91,8 @@ void *transfer(void *ptr)
 
         args->bank->accounts[account2] = balance;
         if(args->delay) usleep(args->delay);
-        pthread_mutex_unlock(args->bank->mutex);
 
+        pthread_mutex_unlock(&args->bank->mutex[account2]);
     }
     return NULL;
 }
@@ -172,10 +173,11 @@ void wait(struct options opt, struct bank *bank, struct thread_info *threads) {
 void init_accounts(struct bank *bank, int num_accounts) {
     bank->num_accounts = num_accounts;
     bank->accounts     = malloc(bank->num_accounts * sizeof(int));
+    bank->mutex = malloc(bank->num_accounts * sizeof(pthread_mutex_t));
 
     for(int i=0; i < bank->num_accounts; i++){
         bank->accounts[i] = 0;
-        pthread_mutex_init(bank->mutex,NULL);
+        pthread_mutex_init(&bank->mutex[i],NULL);
       }
 }
 
