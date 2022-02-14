@@ -68,6 +68,26 @@ void *transfer(void *ptr)
         printf("Account %d depositing %d on account %d\n",
             account1, amount, account2);
 
+        pthread_mutex_lock(&args->bank->mutex);
+        balance = args->bank->accounts[account1];
+        if(args->delay) usleep(args->delay); // Force a context switch
+
+        balance -= amount;
+        if(args->delay) usleep(args->delay);
+
+        args->bank->accounts[account1] = balance;
+        if(args->delay) usleep(args->delay);
+
+        balance = args->bank->accounts[account2];
+        if(args->delay) usleep(args->delay); // Force a context switch
+
+        balance += amount;
+        if(args->delay) usleep(args->delay);
+
+        args->bank->accounts[account2] = balance;
+        if(args->delay) usleep(args->delay);
+        pthread_mutex_unlock(&args->bank->mutex);
+
     }
     return NULL;
 }
