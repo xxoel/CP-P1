@@ -55,8 +55,25 @@ void *deposit(void *ptr)
     return NULL;
 }
 
-// start opt.num_threads threads running on deposit.
-struct thread_info *start_threads(struct options opt, struct bank *bank)
+void *transfer(void *ptr)
+{
+    struct args *args =  ptr;
+    int amount, account1, account2, balance;
+
+    while(args->thread_num--) {
+        account1 = rand() % args->bank->num_accounts;
+        while(account1 ==
+              (account2 = rand() % args->bank->num_accounts));
+        amount  = rand() % args->bank->accounts[account1];
+        printf("Account %d depositing %d on account %d\n",
+            account1, amount, account2);
+
+    }
+    return NULL;
+}
+
+// start opt.num_threads threads.
+struct thread_info *start_threads(struct options opt, struct bank *bank, void *func)
 {
     int i;
     struct thread_info *threads;
@@ -79,7 +96,7 @@ struct thread_info *start_threads(struct options opt, struct bank *bank)
         threads[i].args -> delay      = opt.delay;
         threads[i].args -> iterations = opt.iterations;
 
-        if (0 != pthread_create(&threads[i].id, NULL, deposit, threads[i].args)) {
+        if (0 != pthread_create(&threads[i].id, NULL, func, threads[i].args)) {
             printf("Could not create thread #%d", i);
             exit(1);
         }
@@ -119,7 +136,6 @@ void wait(struct options opt, struct bank *bank, struct thread_info *threads) {
         free(threads[i].args);
 
     free(threads);
-    free(bank->accounts);
 }
 
 // allocate memory, and set all accounts to 0
@@ -151,8 +167,11 @@ int main (int argc, char **argv)
 
     init_accounts(&bank, opt.num_accounts);
 
-    thrs = start_threads(opt, &bank);
+    thrs = start_threads(opt, &bank, deposit);
+    wait(opt, &bank, thrs);
+    thrs = start_threads(opt, &bank, transfer);
     wait(opt, &bank, thrs);
 
+    free(bank.accounts);
     return 0;
 }
