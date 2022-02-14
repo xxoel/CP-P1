@@ -61,8 +61,13 @@ void *transfer(void *ptr)
     int amount, account1, account2, balance;
 
     while(args->thread_num--) {
-        account1 = rand() % args->bank->num_accounts;
-        while(account1 ==(account2 = rand() % args->bank->num_accounts));
+
+        do{
+            account1 = rand() % args->bank->num_accounts;
+        }while(0 == (args->bank->accounts[account1]));
+
+        while(account1 == (account2 = rand() % args->bank->num_accounts));
+
         if(account1<account2){
             pthread_mutex_lock(&args->bank->mutex[account1]);
             pthread_mutex_lock(&args->bank->mutex[account2]);
@@ -72,7 +77,8 @@ void *transfer(void *ptr)
             pthread_mutex_lock(&args->bank->mutex[account1]);
         }
 
-        amount  = rand() % args->bank->accounts[account1];
+        amount = rand() % args->bank->accounts[account1];
+
 
         printf("Account %d depositing %d on account %d\n",
             account1, amount, account2);
@@ -212,6 +218,5 @@ int main (int argc, char **argv)
 
     free(bank.mutex);
     free(bank.accounts);
-    free(bank.mutex);
     return 0;
 }
