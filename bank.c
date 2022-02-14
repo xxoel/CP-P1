@@ -62,15 +62,22 @@ void *transfer(void *ptr)
 
     while(args->thread_num--) {
         account1 = rand() % args->bank->num_accounts;
-        account2 = rand() % args->bank->num_accounts;
+        while(account1 ==(account2 = rand() % args->bank->num_accounts));
+        if(account1<account2){
+            pthread_mutex_lock(&args->bank->mutex[account1]);
+            pthread_mutex_lock(&args->bank->mutex[account2]);
+        }
+        else{
+            pthread_mutex_lock(&args->bank->mutex[account2]);
+            pthread_mutex_lock(&args->bank->mutex[account1]);
+        }
+
         amount  = rand() % args->bank->accounts[account1];
-        while(account1 ==account2)
-            account2 = rand() % args->bank->num_accounts;
+
         printf("Account %d depositing %d on account %d\n",
             account1, amount, account2);
 
         //giving account
-        pthread_mutex_lock(&args->bank->mutex[account1]);
         balance = args->bank->accounts[account1];
         if(args->delay) usleep(args->delay); // Force a context switch
 
@@ -79,10 +86,8 @@ void *transfer(void *ptr)
 
         args->bank->accounts[account1] = balance;
         if(args->delay) usleep(args->delay);
-        pthread_mutex_unlock(&args->bank->mutex[account1]);
 
         //reciving account
-        pthread_mutex_lock(&args->bank->mutex[account2]);
         balance = args->bank->accounts[account2];
         if(args->delay) usleep(args->delay); // Force a context switch
 
@@ -93,6 +98,7 @@ void *transfer(void *ptr)
         if(args->delay) usleep(args->delay);
 
         pthread_mutex_unlock(&args->bank->mutex[account2]);
+        pthread_mutex_unlock(&args->bank->mutex[account1]);
     }
     return NULL;
 }
@@ -206,5 +212,6 @@ int main (int argc, char **argv)
 
     free(bank.mutex);
     free(bank.accounts);
+    free(bank.mutex);
     return 0;
 }
