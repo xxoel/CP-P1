@@ -60,7 +60,7 @@ void *transfer(void *ptr)
     struct args *args =  ptr;
     int amount, account1, account2, balance;
 
-    while(args->thread_num--) {
+    while(args->iterations--) {
 
         do{
             account1 = rand() % args->bank->num_accounts;
@@ -77,7 +77,7 @@ void *transfer(void *ptr)
             pthread_mutex_lock(&args->bank->mutex[account1]);
         }
 
-        amount = rand() % args->bank->accounts[account1];
+        amount = rand() % (args->bank->accounts[account1]+1);
 
 
         printf("Account %d depositing %d on account %d\n",
@@ -102,6 +102,8 @@ void *transfer(void *ptr)
 
         args->bank->accounts[account2] = balance;
         if(args->delay) usleep(args->delay);
+
+        args->net_total += amount;
 
         pthread_mutex_unlock(&args->bank->mutex[account2]);
         pthread_mutex_unlock(&args->bank->mutex[account1]);
