@@ -144,7 +144,20 @@ struct thread_info *start_threads(struct options opt, struct bank *bank, void *f
     return threads;
 }
 
-// Print the final balances of accounts and threads
+// Print the final balance
+void print_total_balance(void *ptr) {
+    int bank_total=0;
+    struct args *args =  ptr;
+
+    while(args->iterations--) {
+        for(int i=0; i < args->bank->num_accounts; i++) {
+            bank_total += args->bank->accounts[i];
+        }
+        printf("\x1b[31m""Total balance: %d\n""\x1b[0m", bank_total);
+    }
+}
+
+// Print the final balances of accounts
 void print_acc_balances(struct bank *bank, struct thread_info *thrs, int num_threads) {
     int bank_total=0;
 
@@ -216,6 +229,11 @@ int main (int argc, char **argv)
     thrs = start_threads(opt, &bank, deposit);
     wait(opt, &bank, thrs);
     thrs = start_threads(opt, &bank, transfer);
+    if (0 != pthread_create(&thrs[opt.num_threads].id, NULL,
+                            print_total_balance, thrs[opt.num_threads].args)) {
+        printf("Could not create thread #%d", opt.num_threads);
+        exit(1);
+    }
     wait(opt, &bank, thrs);
 
     free(bank.mutex);
