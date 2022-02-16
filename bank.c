@@ -253,6 +253,7 @@ int main (int argc, char **argv)
     struct options      opt;
     struct bank         bank;
     struct thread_info *thrs;
+    struct thread_info thr;
 
     srand(time(NULL));
 
@@ -270,7 +271,10 @@ int main (int argc, char **argv)
     wait(opt, &bank, thrs);
     thrs = start_threads(opt, &bank, transfer);
 
-    start_thread(opt,&bank,print_total_balance);
+    thr = start_thread(opt,&bank,print_total_balance);
+
+    pthread_join(thr.id, NULL);
+    free(thr.args);
 
     wait(opt, &bank, thrs);
 
