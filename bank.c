@@ -144,6 +144,29 @@ struct thread_info *start_threads(struct options opt, struct bank *bank, void *f
     return threads;
 }
 
+// start one thread.
+struct thread_info start_thread(struct options opt, struct bank *bank, void *func)
+{
+    struct thread_info thread;
+
+    printf("creating one thread\n");
+
+        thread.args = malloc(sizeof(struct args));
+
+        thread.args -> thread_num = 0;
+        thread.args -> net_total  = 0;
+        thread.args -> bank       = bank;
+        thread.args -> delay      = opt.delay;
+        thread.args -> iterations = opt.iterations;
+
+        if (0 != pthread_create(&thread.id, NULL, func, thread.args)) {
+            printf("Could not create thread");
+            exit(1);
+        }
+
+    return thread;
+}
+
 void lock_all(void * ptr){
     struct args *args =  ptr;
     for(int i=0; i < args->bank->num_accounts; i++)
@@ -247,17 +270,7 @@ int main (int argc, char **argv)
     wait(opt, &bank, thrs);
     thrs = start_threads(opt, &bank, transfer);
 
-    thrs[opt.num_threads].args = malloc(sizeof(struct args));
-    thrs[opt.num_threads].args -> thread_num = opt.num_threads;
-    thrs[opt.num_threads].args -> net_total  = 0;
-    thrs[opt.num_threads].args -> bank       = &bank;
-    thrs[opt.num_threads].args -> delay      = opt.delay;
-    thrs[opt.num_threads].args -> iterations = opt.iterations;
-    if (0 != pthread_create(&thrs[opt.num_threads].id, NULL,
-                            print_total_balance, thrs[opt.num_threads].args)) {
-        printf("Could not create thread #%d", opt.num_threads);
-        exit(1);
-    }
+    start_thread(opt,&bank,print_total_balance);
 
     wait(opt, &bank, thrs);
 
