@@ -118,7 +118,7 @@ struct thread_info *start_threads(struct options opt, struct bank *bank, void *f
     struct thread_info *threads;
 
     printf("creating %d threads\n", opt.num_threads);
-    threads = malloc(sizeof(struct thread_info) * opt.num_threads);
+    threads = malloc(sizeof(struct thread_info) * (opt.num_threads+1));
 
     if (threads == NULL) {
         printf("Not enough memory\n");
@@ -144,17 +144,34 @@ struct thread_info *start_threads(struct options opt, struct bank *bank, void *f
     return threads;
 }
 
+void lock_all(void * ptr){
+    struct args *args =  ptr;
+    for(int i=0; i < args->bank->num_accounts; i++)
+        pthread_mutex_lock(&args->bank->mutex[i]);
+}
+
+void unlock_all(void * ptr){
+    struct args *args =  ptr;
+    for(int i=0; i < args->bank->num_accounts; i++)
+        pthread_mutex_unlock(&args->bank->mutex[i]);
+}
+
 // Print the final balance
-void print_total_balance(void *ptr) {
+void *print_total_balance(void *ptr) {
     int bank_total=0;
     struct args *args =  ptr;
 
     while(args->iterations--) {
+        lock_all(ptr);
         for(int i=0; i < args->bank->num_accounts; i++) {
             bank_total += args->bank->accounts[i];
         }
         printf("\x1b[31m""Total balance: %d\n""\x1b[0m", bank_total);
+        bank_total =0;
+        unlock_all(ptr);
+        if(args->delay) usleep(args->delay); // Force a context switch
     }
+    return NULL;
 }
 
 // Print the final balances of accounts
@@ -229,11 +246,19 @@ int main (int argc, char **argv)
     thrs = start_threads(opt, &bank, deposit);
     wait(opt, &bank, thrs);
     thrs = start_threads(opt, &bank, transfer);
+
+    thrs[opt.num_threads].args = malloc(sizeof(struct args));
+    thrs[opt.num_threads].args -> thread_num = opt.num_threads;
+    thrs[opt.num_threads].args -> net_total  = 0;
+    thrs[opt.num_threads].args -> bank       = &bank;
+    thrs[opt.num_threads].args -> delay      = opt.delay;
+    thrs[opt.num_threads].args -> iterations = opt.iterations;
     if (0 != pthread_create(&thrs[opt.num_threads].id, NULL,
                             print_total_balance, thrs[opt.num_threads].args)) {
         printf("Could not create thread #%d", opt.num_threads);
         exit(1);
     }
+
     wait(opt, &bank, thrs);
 
     free(bank.mutex);
