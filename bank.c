@@ -247,28 +247,9 @@ void init_accounts(struct bank *bank, int num_accounts) {
       }
 }
 
-int main (int argc, char **argv)
-{
-    struct options      opt;
-    struct bank         bank;
+void start_transfer(struct options opt, struct bank bank){
     struct thread_info *thrs;
     struct thread_info thr;
-
-    srand(time(NULL));
-
-    // Default values for the options
-    opt.num_threads  = 5;
-    opt.num_accounts = 10;
-    opt.iterations   = 100;
-    opt.delay        = 10;
-
-    read_options(argc, argv, &opt);
-
-    init_accounts(&bank, opt.num_accounts);
-
-    thrs = start_threads(opt, &bank, deposit);
-    wait(opt, &bank, thrs);
-
     thrs = start_threads(opt, &bank, transfer);
     thr = start_thread(opt,&bank,print_total_balance);
 
@@ -285,6 +266,32 @@ int main (int argc, char **argv)
     for (int i = 0; i < opt.num_threads; i++)
         free(thrs[i].args);
     free(thrs);
+}
+
+int main (int argc, char **argv)
+{
+    struct options      opt;
+    struct bank         bank;
+    struct thread_info *thrs;
+
+    srand(time(NULL));
+
+    // Default values for the options
+    opt.num_threads  = 5;
+    opt.num_accounts = 10;
+    opt.iterations   = 100;
+    opt.delay        = 10;
+
+    read_options(argc, argv, &opt);
+
+    init_accounts(&bank, opt.num_accounts);
+
+    // deposit on accounts
+    thrs = start_threads(opt, &bank, deposit);
+    wait(opt, &bank, thrs);
+    
+    // start transfer from accounts
+    start_transfer(opt, bank);
 
     free(bank.mutex);
     free(bank.accounts);
