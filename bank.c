@@ -20,6 +20,7 @@ struct args {
     int	         iterations;  // number of operations
     int          net_total;   // total amount deposited by this thread
     struct bank *bank;        // pointer to the bank (shared with other threads)
+    int          iterator;    // total iterations at the moment
     int          run;
 };
 
@@ -29,30 +30,30 @@ struct thread_info {
 };
 
 void processOperation(void *ptr,int acc1,int acc2,int balance,int amount,int operation){
-  struct args *args = ptr;
+    struct args *args = ptr;
 
-  if(operation){
-  balance = args->bank->accounts[acc1];
-  if(args->delay) usleep(args->delay); // Force a context switch
+    if(operation){
+        balance = args->bank->accounts[acc1];
+        if(args->delay) usleep(args->delay); // Force a context switch
 
-  balance -= amount;
-  if(args->delay) usleep(args->delay);
+        balance -= amount;
+        if(args->delay) usleep(args->delay);
 
-  args->bank->accounts[acc1] = balance;
-  if(args->delay) usleep(args->delay);
-  }
+        args->bank->accounts[acc1] = balance;
+        if(args->delay) usleep(args->delay);
+    }
 
-  //reciving account
-  balance = args->bank->accounts[acc2];
-  if(args->delay) usleep(args->delay); // Force a context switch
+    //reciving account
+    balance = args->bank->accounts[acc2];
+    if(args->delay) usleep(args->delay); // Force a context switch
 
-  balance += amount;
-  if(args->delay) usleep(args->delay);
+    balance += amount;
+    if(args->delay) usleep(args->delay);
 
-  args->bank->accounts[acc2] = balance;
-  if(args->delay) usleep(args->delay);
+    args->bank->accounts[acc2] = balance;
+    if(args->delay) usleep(args->delay);
 
-  args->net_total += amount;
+    args->net_total += amount;
 }
 
 // Threads run on this function
@@ -77,15 +78,15 @@ void *deposit(void *ptr)
 }
 
 void skipInterblock(void *ptr,int acc1,int acc2){
-  struct args *args = ptr;
-  if(acc1<acc2){
-      pthread_mutex_lock(&args->bank->mutex[acc1]);
-      pthread_mutex_lock(&args->bank->mutex[acc2]);
-  }
-  else{
-      pthread_mutex_lock(&args->bank->mutex[acc2]);
-      pthread_mutex_lock(&args->bank->mutex[acc1]);
-  }
+    struct args *args = ptr;
+    if(acc1<acc2){
+        pthread_mutex_lock(&args->bank->mutex[acc1]);
+        pthread_mutex_lock(&args->bank->mutex[acc2]);
+    }
+    else{
+        pthread_mutex_lock(&args->bank->mutex[acc2]);
+        pthread_mutex_lock(&args->bank->mutex[acc1]);
+    }
 }
 
 void *transfer(void *ptr)
@@ -244,7 +245,7 @@ void init_accounts(struct bank *bank, int num_accounts) {
     for(int i=0; i < bank->num_accounts; i++){
         bank->accounts[i] = 0;
         pthread_mutex_init(&bank->mutex[i],NULL);
-      }
+    }
 }
 
 void start_transfer(struct options opt, struct bank bank){
