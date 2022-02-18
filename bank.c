@@ -20,6 +20,7 @@ struct args {
     int	         iterations;  // number of operations
     int          net_total;   // total amount deposited by this thread
     struct bank *bank;        // pointer to the bank (shared with other threads)
+    int          run;
 };
 
 struct thread_info {
@@ -157,6 +158,7 @@ struct thread_info start_thread(struct options opt, struct bank *bank, void *fun
         thread.args -> bank       = bank;
         thread.args -> delay      = opt.delay;
         thread.args -> iterations = opt.iterations;
+        thread.args -> run = 1;
 
         if (0 != pthread_create(&thread.id, NULL, func, thread.args)) {
             printf("Could not create thread");
@@ -181,7 +183,7 @@ void *print_total_balance(void *ptr) {
     int bank_total=0;
     struct args *args =  ptr;
 
-    while(args->iterations--) {
+    while(args->run) {
         lock_all(args->bank->mutex,args->bank->num_accounts);
         for(int i=0; i < args->bank->num_accounts; i++) {
             bank_total += args->bank->accounts[i];
@@ -273,7 +275,8 @@ int main (int argc, char **argv)
     for (int i = 0; i < opt.num_threads; i++)
         pthread_join(thrs[i].id, NULL);
 
-    pthread_cancel(thr.id);
+    thr.args->run =0;
+    pthread_join(thr.id, NULL);
     unlock_all(bank.mutex,opt.num_accounts);
     printf("\x1b[0m");
     free(thr.args);
@@ -282,7 +285,6 @@ int main (int argc, char **argv)
     for (int i = 0; i < opt.num_threads; i++)
         free(thrs[i].args);
     free(thrs);
-
 
     free(bank.mutex);
     free(bank.accounts);
