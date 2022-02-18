@@ -14,13 +14,17 @@ struct bank {
     pthread_mutex_t *mutex;
 };
 
+struct iter {
+    int iterator;            // total iterations at the moment
+    pthread_mutex_t mutex;
+};
+
 struct args {
     int          thread_num;  // application defined thread #
     int          delay;       // delay between operations
-    int	         iterations;  // number of operations
     int          net_total;   // total amount deposited by this thread
     struct bank *bank;        // pointer to the bank (shared with other threads)
-    int          iterator;    // total iterations at the moment
+    struct iter *iter;    // total iterations at the moment
     int          run;
 };
 
@@ -57,12 +61,15 @@ void processOperation(void *ptr,int acc1,int acc2,int balance,int amount,int ope
 }
 
 // Threads run on this function
-void *deposit(void *ptr)
-{
+void *deposit(void *ptr){
     struct args *args =  ptr;
     int amount, account, balance=0;
 
-    while(args->iterations--) {
+    pthread_mutex_lock(&args->iter->mutex);
+    while(args->iter->iterator) {
+        args->iter->iterator--;
+        pthread_mutex_unlock(&args->iter->mutex);
+
         amount  = rand() % MAX_AMOUNT;
         account = rand() % args->bank->num_accounts;
         printf("Thread %d depositing %d on account %d\n",
@@ -73,7 +80,10 @@ void *deposit(void *ptr)
         processOperation(ptr,0,account,balance,amount,0);
 
         pthread_mutex_unlock(&args->bank->mutex[account]);
+
+        pthread_mutex_lock(&args->iter->mutex);
     }
+    pthread_mutex_unlock(&args->iter->mutex);
     return NULL;
 }
 
@@ -89,12 +99,14 @@ void skipInterblock(void *ptr,int acc1,int acc2){
     }
 }
 
-void *transfer(void *ptr)
-{
+void *transfer(void *ptr){
     struct args *args =  ptr;
     int amount, account1, account2, balance=0;
 
-    while(args->iterations--) {
+    pthread_mutex_lock(&args->iter->mutex);
+    while(args->iter->iterator){
+        args->iter->iterator--;
+        pthread_mutex_unlock(&args->iter->mutex);
 
         do{
             account1 = rand() % args->bank->num_accounts;
@@ -112,13 +124,15 @@ void *transfer(void *ptr)
 
         pthread_mutex_unlock(&args->bank->mutex[account2]);
         pthread_mutex_unlock(&args->bank->mutex[account1]);
+
+        pthread_mutex_lock(&args->iter->mutex);
     }
+    pthread_mutex_unlock(&args->iter->mutex);
     return NULL;
 }
 
 // start opt.num_threads threads.
-struct thread_info *start_threads(struct options opt, struct bank *bank, void *func)
-{
+struct thread_info *start_threads(struct options opt, struct bank *bank, void *func, struct iter *iter){
     int i;
     struct thread_info *threads;
 
@@ -138,7 +152,7 @@ struct thread_info *start_threads(struct options opt, struct bank *bank, void *f
         threads[i].args -> net_total  = 0;
         threads[i].args -> bank       = bank;
         threads[i].args -> delay      = opt.delay;
-        threads[i].args -> iterations = opt.iterations;
+        threads[i].args -> iter       = iter;
 
         if (0 != pthread_create(&threads[i].id, NULL, func, threads[i].args)) {
             printf("Could not create thread #%d", i);
@@ -150,15 +164,14 @@ struct thread_info *start_threads(struct options opt, struct bank *bank, void *f
 }
 
 // start one thread.
-struct thread_info start_thread(struct options opt, struct bank *bank, void *func)
-{
+struct thread_info start_thread(struct options opt, struct bank *bank, void *func, struct iter *iter){
     struct thread_info thread;
         thread.args = malloc(sizeof(struct args));
         thread.args -> thread_num = 0;
         thread.args -> net_total  = 0;
         thread.args -> bank       = bank;
         thread.args -> delay      = opt.delay;
-        thread.args -> iterations = opt.iterations;
+        thread.args -> iter   = iter;
         thread.args -> run = 1;
 
         if (0 != pthread_create(&thread.id, NULL, func, thread.args)) {
@@ -222,13 +235,15 @@ void print_thrs_balances(struct bank *bank, struct thread_info *thrs, int num_th
 }
 
 // wait for all threads to finish, print totals, and free memory
-void wait(struct options opt, struct bank *bank, struct thread_info *threads) {
+void wait(struct options opt, struct bank *bank, struct thread_info *threads, struct iter *iter) {
     // Wait for the threads to finish
     for (int i = 0; i < opt.num_threads; i++)
         pthread_join(threads[i].id, NULL);
 
     print_thrs_balances(bank, threads, opt.num_threads);
     print_acc_balances(bank, threads, opt.num_threads);
+
+    iter->iterator = opt.iterations;
 
     for (int i = 0; i < opt.num_threads; i++)
         free(threads[i].args);
@@ -248,11 +263,11 @@ void init_accounts(struct bank *bank, int num_accounts) {
     }
 }
 
-void start_transfer(struct options opt, struct bank bank){
+void start_transfer(struct options opt, struct bank bank, struct iter iter){
     struct thread_info *thrs;
     struct thread_info thr;
-    thrs = start_threads(opt, &bank, transfer);
-    thr = start_thread(opt,&bank,print_total_balance);
+    thrs = start_threads(opt, &bank, transfer, &iter);
+    thr = start_thread(opt,&bank,print_total_balance, &iter);
 
     for (int i = 0; i < opt.num_threads; i++)
         pthread_join(thrs[i].id, NULL);
@@ -269,11 +284,11 @@ void start_transfer(struct options opt, struct bank bank){
     free(thrs);
 }
 
-int main (int argc, char **argv)
-{
+int main (int argc, char **argv){
     struct options      opt;
     struct bank         bank;
     struct thread_info *thrs;
+    struct iter         iter;
 
     srand(time(NULL));
 
@@ -283,16 +298,19 @@ int main (int argc, char **argv)
     opt.iterations   = 100;
     opt.delay        = 10;
 
+    pthread_mutex_init(&iter.mutex,NULL);
+
     read_options(argc, argv, &opt);
 
+    iter.iterator= opt.iterations;
     init_accounts(&bank, opt.num_accounts);
 
     // deposit on accounts
-    thrs = start_threads(opt, &bank, deposit);
-    wait(opt, &bank, thrs);
+    thrs = start_threads(opt, &bank, deposit, &iter);
+    wait(opt, &bank, thrs, &iter);
     
     // start transfer from accounts
-    start_transfer(opt, bank);
+    start_transfer(opt, bank, iter);
 
     free(bank.mutex);
     free(bank.accounts);
