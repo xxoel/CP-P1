@@ -55,6 +55,18 @@ void *deposit(void *ptr)
     return NULL;
 }
 
+void skipInterblock(void *ptr,int acc1,int acc2){
+  struct args *args = ptr;
+  if(acc1<acc2){
+      pthread_mutex_lock(&args->bank->mutex[acc1]);
+      pthread_mutex_lock(&args->bank->mutex[acc2]);
+  }
+  else{
+      pthread_mutex_lock(&args->bank->mutex[acc2]);
+      pthread_mutex_lock(&args->bank->mutex[acc1]);
+  }
+}
+
 void *transfer(void *ptr)
 {
     struct args *args =  ptr;
@@ -68,19 +80,10 @@ void *transfer(void *ptr)
 
         while(account1 == (account2 = rand() % args->bank->num_accounts));
 
-        if(account1<account2){
-            pthread_mutex_lock(&args->bank->mutex[account1]);
-            pthread_mutex_lock(&args->bank->mutex[account2]);
-        }
-        else{
-            pthread_mutex_lock(&args->bank->mutex[account2]);
-            pthread_mutex_lock(&args->bank->mutex[account1]);
-        }
-
+        skipInterblock(ptr,account1,account2);
         amount = rand() % (args->bank->accounts[account1]+1);
 
-
-        printf("Account %d depositing %d on account %d\n",
+        printf("Account %d transfering %d to account %d\n",
             account1, amount, account2);
 
         //giving account
@@ -117,7 +120,7 @@ struct thread_info *start_threads(struct options opt, struct bank *bank, void *f
     int i;
     struct thread_info *threads;
 
-    printf("creating %d threads\n", opt.num_threads);
+    printf("\nCreating %d threads\n", opt.num_threads);
     threads = malloc(sizeof(struct thread_info) * (opt.num_threads+1));
 
     if (threads == NULL) {
@@ -148,11 +151,8 @@ struct thread_info *start_threads(struct options opt, struct bank *bank, void *f
 struct thread_info start_thread(struct options opt, struct bank *bank, void *func)
 {
     struct thread_info thread;
-
-    printf("creating one thread\n");
-
+        printf("\n CREATING ONE THREAD \n");
         thread.args = malloc(sizeof(struct args));
-
         thread.args -> thread_num = 0;
         thread.args -> net_total  = 0;
         thread.args -> bank       = bank;
@@ -210,7 +210,7 @@ void print_acc_balances(struct bank *bank, struct thread_info *thrs, int num_thr
 }
 
 // Print the final balances of accounts and threads
-void print_thrs_balances(struct bank *bank, struct thread_info *thrs, int num_threads) {
+/*void print_thrs_balances(struct bank *bank, struct thread_info *thrs, int num_threads) {
     int total_deposits=0;
     printf("\nNet deposits by thread\n");
 
@@ -219,7 +219,7 @@ void print_thrs_balances(struct bank *bank, struct thread_info *thrs, int num_th
         total_deposits += thrs[i].args->net_total;
     }
     printf("Total: %d\n", total_deposits);
-}
+}*/
 
 // wait for all threads to finish, print totals, and free memory
 void wait(struct options opt, struct bank *bank, struct thread_info *threads) {
@@ -227,7 +227,7 @@ void wait(struct options opt, struct bank *bank, struct thread_info *threads) {
     for (int i = 0; i < opt.num_threads; i++)
         pthread_join(threads[i].id, NULL);
 
-    print_thrs_balances(bank, threads, opt.num_threads);
+    //print_thrs_balances(bank, threads, opt.num_threads);
     print_acc_balances(bank, threads, opt.num_threads);
 
     for (int i = 0; i < opt.num_threads; i++)
@@ -270,7 +270,6 @@ int main (int argc, char **argv)
     thrs = start_threads(opt, &bank, deposit);
     wait(opt, &bank, thrs);
     thrs = start_threads(opt, &bank, transfer);
-
     thr = start_thread(opt,&bank,print_total_balance);
 
     pthread_join(thr.id, NULL);
