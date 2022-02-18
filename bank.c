@@ -27,11 +27,38 @@ struct thread_info {
     struct args *args;  // pointer to the arguments
 };
 
+void processOperation(void *ptr,int acc1,int acc2,int balance,int amount,int operation){
+  struct args *args = ptr;
+
+  if(operation){
+  balance = args->bank->accounts[acc1];
+  if(args->delay) usleep(args->delay); // Force a context switch
+
+  balance -= amount;
+  if(args->delay) usleep(args->delay);
+
+  args->bank->accounts[acc1] = balance;
+  if(args->delay) usleep(args->delay);
+  }
+
+  //reciving account
+  balance = args->bank->accounts[acc2];
+  if(args->delay) usleep(args->delay); // Force a context switch
+
+  balance += amount;
+  if(args->delay) usleep(args->delay);
+
+  args->bank->accounts[acc2] = balance;
+  if(args->delay) usleep(args->delay);
+
+  args->net_total += amount;
+}
+
 // Threads run on this function
 void *deposit(void *ptr)
 {
     struct args *args =  ptr;
-    int amount, account, balance;
+    int amount, account, balance=0;
 
     while(args->iterations--) {
         amount  = rand() % MAX_AMOUNT;
@@ -40,16 +67,9 @@ void *deposit(void *ptr)
             args->thread_num, amount, account);
 
         pthread_mutex_lock(&args->bank->mutex[account]);
-        balance = args->bank->accounts[account];
-        if(args->delay) usleep(args->delay); // Force a context switch
 
-        balance += amount;
-        if(args->delay) usleep(args->delay);
+        processOperation(ptr,0,account,balance,amount,0);
 
-        args->bank->accounts[account] = balance;
-        if(args->delay) usleep(args->delay);
-
-        args->net_total += amount;
         pthread_mutex_unlock(&args->bank->mutex[account]);
     }
     return NULL;
@@ -70,7 +90,7 @@ void skipInterblock(void *ptr,int acc1,int acc2){
 void *transfer(void *ptr)
 {
     struct args *args =  ptr;
-    int amount, account1, account2, balance;
+    int amount, account1, account2, balance=0;
 
     while(args->iterations--) {
 
@@ -86,27 +106,7 @@ void *transfer(void *ptr)
         printf("Account %d transfering %d to account %d\n",
             account1, amount, account2);
 
-        //giving account
-        balance = args->bank->accounts[account1];
-        if(args->delay) usleep(args->delay); // Force a context switch
-
-        balance -= amount;
-        if(args->delay) usleep(args->delay);
-
-        args->bank->accounts[account1] = balance;
-        if(args->delay) usleep(args->delay);
-
-        //reciving account
-        balance = args->bank->accounts[account2];
-        if(args->delay) usleep(args->delay); // Force a context switch
-
-        balance += amount;
-        if(args->delay) usleep(args->delay);
-
-        args->bank->accounts[account2] = balance;
-        if(args->delay) usleep(args->delay);
-
-        args->net_total += amount;
+        processOperation(ptr,account1,account2,balance,amount,1);
 
         pthread_mutex_unlock(&args->bank->mutex[account2]);
         pthread_mutex_unlock(&args->bank->mutex[account1]);
@@ -151,7 +151,6 @@ struct thread_info *start_threads(struct options opt, struct bank *bank, void *f
 struct thread_info start_thread(struct options opt, struct bank *bank, void *func)
 {
     struct thread_info thread;
-        printf("\n CREATING ONE THREAD \n");
         thread.args = malloc(sizeof(struct args));
         thread.args -> thread_num = 0;
         thread.args -> net_total  = 0;
