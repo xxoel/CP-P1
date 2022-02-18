@@ -55,48 +55,6 @@ void *deposit(void *ptr)
     return NULL;
 }
 
-void *transfer(void *ptr)
-{
-    struct args *args =  ptr;
-    int amount, account1, account2, balance;
-
-    while(args->thread_num--) {
-        account1 = rand() % args->bank->num_accounts;
-        account2 = rand() % args->bank->num_accounts;
-        amount  = rand() % args->bank->accounts[account1];
-        while(account1 ==account2)
-            account2 = rand() % args->bank->num_accounts;
-        printf("Account %d depositing %d on account %d\n",
-            account1, amount, account2);
-
-        //giving account
-        pthread_mutex_lock(&args->bank->mutex[account1]);
-        balance = args->bank->accounts[account1];
-        if(args->delay) usleep(args->delay); // Force a context switch
-
-        balance -= amount;
-        if(args->delay) usleep(args->delay);
-
-        args->bank->accounts[account1] = balance;
-        if(args->delay) usleep(args->delay);
-        pthread_mutex_unlock(&args->bank->mutex[account1]);
-
-        //reciving account
-        pthread_mutex_lock(&args->bank->mutex[account2]);
-        balance = args->bank->accounts[account2];
-        if(args->delay) usleep(args->delay); // Force a context switch
-
-        balance += amount;
-        if(args->delay) usleep(args->delay);
-
-        args->bank->accounts[account2] = balance;
-        if(args->delay) usleep(args->delay);
-
-        pthread_mutex_unlock(&args->bank->mutex[account2]);
-    }
-    return NULL;
-}
-
 // start opt.num_threads threads.
 struct thread_info *start_threads(struct options opt, struct bank *bank, void *func)
 {
@@ -200,8 +158,6 @@ int main (int argc, char **argv)
     init_accounts(&bank, opt.num_accounts);
 
     thrs = start_threads(opt, &bank, deposit);
-    wait(opt, &bank, thrs);
-    thrs = start_threads(opt, &bank, transfer);
     wait(opt, &bank, thrs);
 
     free(bank.accounts);
