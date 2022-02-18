@@ -160,6 +160,7 @@ int main (int argc, char **argv)
     thrs = start_threads(opt, &bank, deposit);
     wait(opt, &bank, thrs);
 
+    free(bank.mutex);
     free(bank.accounts);
     return 0;
 }
