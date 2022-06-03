@@ -16,6 +16,7 @@ El programa acepta las siguiente opciones:
 Cada uno de los ejercicios están resueltos en una rama diferente para facilitar ejecutar cualquiera de ellos.
 ** [[https://github.com/migueldeoleiros/CP-P1/tree/ejercicio1][Ejercicio 1]]
 *Proteger el acceso a cada cuenta del banco con un mutex*
+
 Añadir un mutex por cuenta para controlar el acceso. estos mutex no deben ser variables globales, sino que deberían estar en la estructura que protegen.
 En el código originar proporcionado, las variables no están protegidas lo que provoca que diferentes threads puedan acceder a la variable al mismo tiempo y sobrescribirla perdiendo información. De esa forma vemos que el balance de las cuentas no coincide con la cifra depositada por lo threads.
 
@@ -23,6 +24,7 @@ Añadimos un array de mutex en el struct /bank/ donde el índice del array corre
 
 ** [[https://github.com/migueldeoleiros/CP-P1/tree/ejercicio2][Ejercicio 2]]
 *Añadir transferencias*
+
 Añadir threads a la simulación que hagan una transferencia entre dos cuentas de una cantidad entre 0 y el saldo total de la cuenta origen.
 Debería haber tantos como threads ingresando, y  debería hacer el mismo número de iteraciones que éstos.
 Imprime un mensaje cuando la transferencia se realiza, con las cuentas implicadas y la cantidad
@@ -32,6 +34,7 @@ La función /tranfer/ es de base muy similar a /deposit/ con la principal difere
 
 ** [[https://github.com/migueldeoleiros/CP-P1/tree/ejercicio3][Ejercicio 3]]
 *Totales*
+
 para verificar que las transferencias se protegen de forma adecuada, añade un hilo que recorra las cuentas calculando e imprimiendo el saldo total repetidamente. Este thread debería iniciarse al mismo tiempo que las transferencias, y debería estar ejecutándose hasta que las transferencias terminen.
 Si las transferencias se hacen de forma correcta, el saldo impreso por este thread debería ser siempre el mismo.
 
@@ -40,6 +43,7 @@ Es importante el bloquear todas las cuentas en esta función para que la funció
 
 ** [[https://github.com/migueldeoleiros/CP-P1/tree/ejercicio4][Ejercicio 4]]
 *Iteraciones*
+
 Previo a este ejercicio cada tread realiza un número de operaciones especificado con la opción -i. Ahora debemos cambiar el comportamiento para que este número de iteraciones sea el realizadose entre todos los threads de cada tipo.
 Es decir, si se especifica que hay que hacer 100 iteraciones, deberían hacerse 100 depósitos y 100 transferencias entre todos los threads.
 
