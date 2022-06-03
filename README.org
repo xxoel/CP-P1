@@ -1,0 +1,46 @@
+* P1 Cuentas del Banco
+El objetivo de la práctica es aprender a usar threads y variables compartidas protegidas.
+
+En esta práctica vamos a implementar un sistema que simula un banco donde se realizan operaciones contra varias cuentas de forma simultánea.
+Cada thread simula una persona realizando un ingreso en una cuenta.
+Tanto la cuenta como la cantidad se generan aleatoriamente.
+Los accesos al valor depositado en las cuentas forman la sección crítica.
+Para forzar que los threads coincidan, y sea más fácil ver problemas de concurrencia, cada thread realizará varios ingresos, y esperará un tiempo entre la consulta del saldo y el incremento. 
+
+El programa acepta las siguiente opciones:
+- *-i n*, para controlar el número de iteraciones que cada thread va a hacer, es decir, cuantos ingresos hace
+- *-t n*, para especificar el número de threads que vamos a crear
+- *-a n*, para controlar el número de cuentas en el banco
+- *-d n*, para cambiar el tiempo de espera entre operaciones
+
+Cada uno de los ejercicios están resueltos en una rama diferente para facilitar ejecutar cualquiera de ellos.
+** [[https://github.com/migueldeoleiros/CP-P1/tree/ejercicio1][Ejercicio 1]]
+*Proteger el acceso a cada cuenta del banco con un mutex*
+Añadir un mutex por cuenta para controlar el acceso. estos mutex no deben ser variables globales, sino que deberían estar en la estructura que protegen.
+En el código originar proporcionado, las variables no están protegidas lo que provoca que diferentes threads puedan acceder a la variable al mismo tiempo y sobrescribirla perdiendo información. De esa forma vemos que el balance de las cuentas no coincide con la cifra depositada por lo threads.
+
+Añadimos un array de mutex en el struct /bank/ donde el índice del array corresponde con las cuentas, y usamos /mutex_lock/ y /mutex_unlock/ en la zona crítica donde se modifican las variables en la función /deposit/, bloqueando el acceso solo a la cuenta que está siendo modificada.
+
+** [[https://github.com/migueldeoleiros/CP-P1/tree/ejercicio2][Ejercicio 2]]
+*Añadir transferencias*
+Añadir threads a la simulación que hagan una transferencia entre dos cuentas de una cantidad entre 0 y el saldo total de la cuenta origen.
+Debería haber tantos como threads ingresando, y  debería hacer el mismo número de iteraciones que éstos.
+Imprime un mensaje cuando la transferencia se realiza, con las cuentas implicadas y la cantidad
+Estos threads deben ejecutarse cuando hayan terminado los depósitos.
+
+La función /tranfer/ es de base muy similar a /deposit/ con la principal diferencia de que esta vez debemos bloquear las dos cuentas involucradas en la transferencia en lugar de solo una. Para evitar interbloqueos (dos o más procesos esperando por recursos que tiene ocupado el otro) usamos la técnica de reserva ordenada.
+
+** [[https://github.com/migueldeoleiros/CP-P1/tree/ejercicio3][Ejercicio 3]]
+*Totales*
+para verificar que las transferencias se protegen de forma adecuada, añade un hilo que recorra las cuentas calculando e imprimiendo el saldo total repetidamente. Este thread debería iniciarse al mismo tiempo que las transferencias, y debería estar ejecutándose hasta que las transferencias terminen.
+Si las transferencias se hacen de forma correcta, el saldo impreso por este thread debería ser siempre el mismo.
+
+Para esto creamos un thread con la función  /print_total_balance/ que periódicamente bloquea todas las cuentas, calcula el balance de todas ellas juntas y las desbloquea de nuevo. Esto se imprime en rojo para facilitar ver el mensaje entre los de transferencia.
+Es importante el bloquear todas las cuentas en esta función para que la función de transferencia no esté cambiando los valores mientras calculamos la suma de ellos.
+
+** [[https://github.com/migueldeoleiros/CP-P1/tree/ejercicio4][Ejercicio 4]]
+*Iteraciones*
+Previo a este ejercicio cada tread realiza un número de operaciones especificado con la opción -i. Ahora debemos cambiar el comportamiento para que este número de iteraciones sea el realizadose entre todos los threads de cada tipo.
+Es decir, si se especifica que hay que hacer 100 iteraciones, deberían hacerse 100 depósitos y 100 transferencias entre todos los threads.
+
+Para esto creamos una variable protegida /iterator/ que vamos decreciendo con cada iteración de /deposit/ o /tranfer/ hasta alcanzar 0, usando el iterador como condición del while y bloqueando dicha variable cada vez que la comprobamos  
